@@ -54,9 +54,20 @@ int main(int argc, char **argv){
 
 	}
 
-        listenfd = socket(AF_INET, SOCK_STREAM, 0);
+        if (( listenfd = socket(AF_INET, SOCK_DGRAM, 0) == -1){
+            perror("Socket error");
+            exit(1);
+        }
 
-	bind(listenfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr));
+        serv_addr.sin_family = AF_INET;
+        serv_addr.sin_port = htons(port);
+        serv_addr.sin_addr.s_addr = INADDR_ANY;
+        bzero(&(serv_addr.sin_zero), 8);
+
+	if ((bind(listenfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) == -1){
+            perror("Bind error");
+            exit(1);
+            }
 
         listen(listenfd, 10);
         
