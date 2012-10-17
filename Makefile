@@ -1,9 +1,15 @@
-FLAGS=-g -Wall
-COMP=gcc
+CFLAGS=-g -Wall
+LDFLAGS=
+CC=gcc
+SOURCES=sender.c requester.c
+EXECUTABLES=sender requester
+.PHONY=all
+.DEFAULT=all
 
+all: $(EXECUTABLES)
 
-sender: sender.c
-	$(COMP) sender.c -o sender $(FLAGS)
+$(EXECUTABLES): $(SOURCES)
+	$(CC) $(CFLAGS) $@.c -o $@
 
 clean:
-	rm *.o
+	rm -rf *.o $(EXECUTABLES)

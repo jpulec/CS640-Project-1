@@ -12,16 +12,17 @@ int main(int argc, char **argv){
 		printf("Usage: requester -p <port> -o <file option>\n");
 		return 1;
 	}
-	int listenfd = 0, connfd = 0;
+	int sock = 0, connfd = 0;
         struct sockaddr_in serv_addr;
-        int opt, port;
+        struct sockaddr_in ret_addr;
+        int opt, port, reply;
         char *endptr, *option;
 
 	while( (opt = getopt(argc, argv, "p:o:")) != -1) {
 		switch(opt) {
                 case 'p':
-                    senderPort = strtol(optarg, &endptr, 10);
-                    if (*endptr != 0 || senderPort < 1024 || senderPort > 65536) {
+                    port = strtol(optarg, &endptr, 10);
+                    if (*endptr != 0 || port < 1024 || port > 65536) {
                         printf("Port number %s is invalid. Port must be between 1024 and 65536.\n", optarg);
                                 return 1;
                         }
@@ -36,27 +37,36 @@ int main(int argc, char **argv){
 
 	}
 
-        if (( listenfd = socket(AF_INET, SOCK_DGRAM, 0)) == -1){
-            perror("Socket error");
+        if (( sock = socket(AF_INET, SOCK_DGRAM, 0)) == -1){
+            printf("Socket error");
             return 1;
         }
 
         serv_addr.sin_family = AF_INET;
-        serv_addr.sin_port = htons(senderPort);
+        serv_addr.sin_port = htons(port);
         serv_addr.sin_addr.s_addr = INADDR_ANY;
         bzero(&(serv_addr.sin_zero), 8);
 
-	if (bind(listenfd, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) == -1){
-            perror("Bind error");
+        char *pkt, *buf;
+        int pkt_len, buf_len, ret_len;
+
+        if(sendto(sock, pkt, pkt_len, 0, (struct sockaddr *)
+                  &serv_addr, sizeof(serv_addr)) != pkt_len){
+            printf("Error sending to server");
             return 1;
-            }
-
-        listen(listenfd, 10);
-        
-        while (1){
-            connfd = accept(listenfd, (struct sockaddr*)NULL, NULL);
-
-        
         }
-}
 
+        if(( reply = recvfrom(sock, buf, buf_len, 0, (struct sockaddr *)
+                              &ret_addr, &ret_len)) != pkt_len) {
+            printf("Error receiving data");
+            return 1;
+        }
+
+        if(serv_addr.sin_addr.s_addr != ret_addr.sin_addr.s_addr) {
+            printf("Error - Packet received from unknown source");
+            return 1;
+        }
+
+        
+
+}
