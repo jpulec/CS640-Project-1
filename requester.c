@@ -38,34 +38,54 @@ int main(int argc, char **argv){
 	}
 
         if (( sock = socket(AF_INET, SOCK_DGRAM, 0)) == -1){
-            printf("Socket error");
+            printf("Socket error\n");
             return 1;
         }
-
-        serv_addr.sin_family = AF_INET;
-        serv_addr.sin_port = htons(port);
-        serv_addr.sin_addr.s_addr = INADDR_ANY;
-        bzero(&(serv_addr.sin_zero), 8);
 
         char *pkt, *buf;
         int pkt_len, buf_len, ret_len;
 
-        if(sendto(sock, pkt, pkt_len, 0, (struct sockaddr *)
-                  &serv_addr, sizeof(serv_addr)) != pkt_len){
-            printf("Error sending to server");
+        //File tracking business
+        FILE *fd = NULL;
+        if ((fd = fopen("tracker.txt", "r")) == NULL){
+            printf("Error opening file tracker.txt\n");
             return 1;
         }
 
-        if(( reply = recvfrom(sock, buf, buf_len, 0, (struct sockaddr *)
-                              &ret_addr, &ret_len)) != pkt_len) {
-            printf("Error receiving data");
-            return 1;
-        }
+        char *file, *serv;
+        int piece, serv_port;
 
-        if(serv_addr.sin_addr.s_addr != ret_addr.sin_addr.s_addr) {
-            printf("Error - Packet received from unknown source");
-            return 1;
+        while(fscanf(fd,"%s %d %s %d", file, &piece, serv, &serv_port) == 4){
+           
+            //TODO:
+            getaddrinfo(serv, );
+
+            serv_addr.sin_family = AF_INET;
+            serv_addr.sin_port = htons(serv_port);
+            serv_addr.sin_addr.s_addr = sock.gethostbyname(serv);
+            bzero(&(serv_addr.sin_zero), 8);
+            
+            if(sendto(sock, pkt, pkt_len, 0, (struct sockaddr *)
+                      &serv_addr, sizeof(serv_addr)) != pkt_len){
+                printf("Error sending to server\n");
+                return 1;
+            }
+
+            if(( reply = recvfrom(sock, buf, buf_len, 0, (struct sockaddr *)
+                                  &ret_addr, &ret_len)) != pkt_len) {
+                printf("Error receiving data\n");
+                return 1;
+            }
+
+            if(serv_addr.sin_addr.s_addr != ret_addr.sin_addr.s_addr) {
+                printf("Error - Packet received from unknown source\n");
+                return 1;
+            }
+
         }
+        fclose(fd);
+        fclose(sock);
+
 
         
 

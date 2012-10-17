@@ -64,7 +64,7 @@ int main(int argc, char **argv){
 	}
 
         if (( sock = socket(AF_INET, SOCK_DGRAM, 0)) == -1){
-            printf("Socket error");
+            printf("Socket error\n");
             return 1;
         }
 
@@ -74,7 +74,7 @@ int main(int argc, char **argv){
         bzero(&(serv_addr.sin_zero), 8);
 
 	if (bind(sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) == -1){
-            printf("Bind error");
+            printf("Bind error\n");
             return 1;
             }
 
@@ -83,16 +83,15 @@ int main(int argc, char **argv){
         while (1){
             if ( (bytes_read = recvfrom(sock, buff, length, 0, 
                  (struct sockaddr *) &cli_addr, &cli_addr_len)) == -1){
-                printf("Error receiving data from client");
+                printf("Error receiving data from client\n");
                 return 1;
             }
 
             if (sendto(sock, buff, bytes_read, 0,
-                      (struct sockaddr *) &cli_addr, sizeof(cli_addr)) != bytes_read){
-                printf("Error sending data to client");
+                      (struct sockaddr *) &cli_addr, sizeof(cli_addr)) == -1){
+                printf("Error sending data to client\n");
                 return 1;
             }
-
             
         
         }
