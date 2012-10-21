@@ -2,10 +2,15 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <sys/types.h>
+#include <sys/time.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <strings.h>
+#include <errno.h>
+#include "syscalls.h"
+
+#define min(a,b) (((a) < (b)) ? (a): (b))
 
 int main(int argc, char **argv){
 	if (argc != 11) {
@@ -77,23 +82,54 @@ int main(int argc, char **argv){
             printf("Bind error\n");
             return 1;
             }
+        int pkt_len = length + sizeof(unsigned int)*2 + sizeof(char);
+        char buf[pkt_len];
+        char *pkt;
+        struct timeval *tp;
 
-        char buff[length];
+        FILE *fd = NULL;
 
-        while (1){
-            if ( (bytes_read = recvfrom(sock, buff, length, 0, 
-                 (struct sockaddr *) &cli_addr, &cli_addr_len)) == -1){
-                printf("Error receiving data from client\n");
+
+        if ( (bytes_read = recvfrom(sock, buf, pkt_len, 0, 
+             (struct sockaddr *) &cli_addr, &cli_addr_len)) == -1){
+            printf("Error receiving data from client\n");
+            return 1;
+        }
+
+        if(buf[0] = 'R') {
+
+            if ((fd = fopen(buf + 9, "r")) == NULL){
+                printf("Error opening file %s\n", buf + 9);
                 return 1;
             }
+            int offset = 0;
+            char data[length];
+            while (read(fd, data, length) != -1){
+                printf("%s",strerror(errno));
+                pkt_len = min(strlen(data), length) + sizeof(unsigned int)*2 + sizeof(char);
 
-            if (sendto(sock, buff, bytes_read, 0,
-                      (struct sockaddr *) &cli_addr, sizeof(cli_addr)) == -1){
-                printf("Error sending data to client\n");
-                return 1;
-            }
+                pkt = (char *) malloc(pkt_len);
+                seqNo = htonl(seqNo);
+                length = htonl(length);
+                memset(pkt, 'D', 1);
+                memcpy(pkt + 1, &seqNo, 4);
+                memcpy(pkt + 5, &length, 4);
+                strcpy(pkt + 9, data);
+
+                if (sendto(sock, pkt, pkt_len, 0,
+                          (struct sockaddr *) &cli_addr, sizeof(cli_addr)) == -1){
+                    printf("Error sending data to client\n");
+                    return 1;
+                }
+                else{
+                    gettimeofday(tp, NULL);
+                    printf("Time:%d %d\n", tp->tv_sec, tp->tv_usec);
+                    printf("IP:%s\n", cli_addr.sin_addr.s_addr);
+                    printf("SeqNo:%d\n", seqNo);
+                    printf("First 4 bytes:%s\n", data);
+                }
             
-        
+            }
         }
 }
 

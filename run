@@ -1,0 +1,9 @@
+#!bin/sh
+
+cp sender sender1 
+cp sender sender2
+
+cp requester requester1
+
+sender1/sender -p 5000 -g 3000 -r 10 -q 1 -l 100
+sender2/sender -p 5002 -g 3000 -r 10 -q 1 -l 100
