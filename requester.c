@@ -121,7 +121,12 @@ int main(int argc, char **argv){
                     printf("Error sending to server:%s\n", strerror(errno));
                     return 1;
                 }
+                
+                //HACK: This prevents from receiving pkts larger
+                //than 1500
                 pkt_len = 1500;
+
+                
                 int returned = recvfrom(sock, buf, pkt_len, MSG_PEEK, (struct sockaddr *)
                              &serv_addr, &serv_addr_len); 
                 pkt_len = min(returned, pkt_len);
@@ -132,18 +137,21 @@ int main(int argc, char **argv){
                     return 1;
                 }
                 while(buf[0] != 'E'){
-                    // HACK: Super hacky way to get this to work
-                    
+                   
+                    int pay_len = strlen(buf + 9);
                     FILE *fp = fopen(option, "a");
-                    fwrite(buf, pkt_len, 1, fp);
+                    fwrite(buf + 9, pay_len, 1, fp);
 
 
-                    gettimeofday(tp, NULL);
+                    //gettimeofday(tp, NULL);
                     //printf("Time:%d %d\n", tp->tv_sec, tp->tv_usec);
                     printf("IP:%s\n", inet_ntoa(serv_addr.sin_addr));
                     printf("SeqNo:%d\n", (buf + 1));
                     printf("Length:%d\n",(buf + 5));
-                    printf("First 4 bytes:%s\n", (buf + 9));
+                    char *data = (char *) malloc(4*sizeof(char));
+                    memcpy(data, buf + 9, 4);
+                    printf("First 4 bytes:%s\n", data);
+                    free(data);
                 
                     int returned = recvfrom(sock, buf, pkt_len, MSG_PEEK, (struct sockaddr *)
                                  &serv_addr, &serv_addr_len); 
@@ -171,9 +179,6 @@ int main(int argc, char **argv){
 
         }
         fclose(fd);
-        fclose(sock);
-
-
-        
+        close(sock);
 
 }
