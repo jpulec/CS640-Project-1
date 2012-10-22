@@ -8,7 +8,6 @@
 #include <arpa/inet.h>
 #include <strings.h>
 #include <errno.h>
-#include "syscalls.h"
 
 #define min(a,b) (((a) < (b)) ? (a): (b))
 
@@ -20,8 +19,9 @@ int main(int argc, char **argv){
 	int sock = 0, connfd = 0;
         struct sockaddr_in serv_addr;
         struct sockaddr_in cli_addr;
-        unsigned int cli_addr_len;
-        int opt, sender_port, requester_port, rate, seqNo, length, bytes_read;
+        socklen_t cli_addr_len = sizeof(cli_addr);
+        int opt, sender_port, requester_port, rate, length, bytes_read;
+        long seqNo;
         char *endptr;
 
 	while( (opt = getopt(argc, argv, "p:g:r:q:l:")) != -1) {
@@ -48,14 +48,14 @@ int main(int argc, char **argv){
 			}
 			break;
 		case 'q': 
-			seqNo = strtol(optarg, &endptr, 10);
+			seqNo = strtoul(optarg, &endptr, 10);
 			if (*endptr != 0) {
                             printf("Rate number %s is invalid.\n", optarg);
 				return 1;
 			}
 			break;
 		case 'l': 
-			length = strtol(optarg, &endptr, 10);
+			length = strtoul(optarg, &endptr, 10);
 			if (*endptr != 0) {
                             printf("Length %s is invalid.\n", optarg);
 				return 1;
@@ -75,7 +75,6 @@ int main(int argc, char **argv){
 
         serv_addr.sin_family = AF_INET;
         serv_addr.sin_port = htons(sender_port);
-        serv_addr.sin_addr.s_addr = INADDR_ANY;
         bzero(&(serv_addr.sin_zero), 8);
 
 	if (bind(sock, (struct sockaddr*)&serv_addr, sizeof(serv_addr)) == -1){
@@ -88,7 +87,6 @@ int main(int argc, char **argv){
         struct timeval *tp;
 
         FILE *fd = NULL;
-
 
         if ( (bytes_read = recvfrom(sock, buf, pkt_len, 0, 
              (struct sockaddr *) &cli_addr, &cli_addr_len)) == -1){
@@ -104,31 +102,42 @@ int main(int argc, char **argv){
             }
             int offset = 0;
             char data[length];
-            while (read(fd, data, length) != -1){
-                printf("%s",strerror(errno));
-                pkt_len = min(strlen(data), length) + sizeof(unsigned int)*2 + sizeof(char);
+            while (!feof(fd)){
+                fread(&data, length, 1, fd);
+                pkt_len = 1 + min(strlen(data), length) + sizeof(unsigned int)*2 + sizeof(char);
 
                 pkt = (char *) malloc(pkt_len);
                 seqNo = htonl(seqNo);
-                length = htonl(length);
+                length = htonl(min(strlen(data), length));
                 memset(pkt, 'D', 1);
                 memcpy(pkt + 1, &seqNo, 4);
                 memcpy(pkt + 5, &length, 4);
                 strcpy(pkt + 9, data);
 
+
+                cli_addr.sin_family = AF_INET;
+                cli_addr.sin_port = htons(requester_port);
+                bzero(&(cli_addr.sin_zero), 8);
+
                 if (sendto(sock, pkt, pkt_len, 0,
                           (struct sockaddr *) &cli_addr, sizeof(cli_addr)) == -1){
                     printf("Error sending data to client\n");
                     return 1;
-                }
-                else{
+                }else{
                     gettimeofday(tp, NULL);
                     printf("Time:%d %d\n", tp->tv_sec, tp->tv_usec);
-                    printf("IP:%s\n", cli_addr.sin_addr.s_addr);
-                    printf("SeqNo:%d\n", seqNo);
-                    printf("First 4 bytes:%s\n", data);
+                    printf("IP:%s\n", inet_ntoa(cli_addr.sin_addr));
+                    printf("SeqNo:%d\n", ntohl(seqNo));
+                    printf("First 4 bytes:%s\n", pkt + 9);
                 }
             
+            }
+
+            memset(pkt, 'E', 1);
+            if (sendto(sock, pkt, pkt_len, 0,
+                      (struct sockaddr *) &cli_addr, sizeof(cli_addr)) == -1){
+                printf("Error sending end pkt to client\n");
+                return 1;
             }
         }
 }
