@@ -1,5 +1,7 @@
+#ifndef UTILITY_H
+#define UTILITY_H
 #include <sys/time.h>
-
+#include <time.h>
 
 int timeval_subtract(struct timeval *result, struct timeval *t2, struct timeval *t1)
 {
@@ -12,11 +14,23 @@ int timeval_subtract(struct timeval *result, struct timeval *t2, struct timeval 
 
 void timeval_print(struct timeval *tv)
 {
+    //char buffer[30];
+    //time_t curtime;
+    printf("%ld.%06ld", tv->tv_sec, tv->tv_usec);
+    //curtime = tv->tv_sec;
+    //strftime(buffer, 30, "%m-%d-%Y  %T", localtime(&curtime));
+    //printf(" = %s.%06ld\n", buffer, tv->tv_usec);
+}
+
+void timeval_print_s(struct timeval *tv)
+{
     char buffer[30];
     time_t curtime;
-
-    printf("%ld.%06ld", tv->tv_sec, tv->tv_usec);
+    struct tm *loctime;
+    //printf("%ld.%06ld", tv->tv_sec, tv->tv_usec);
     curtime = tv->tv_sec;
-    strftime(buffer, 30, "%m-%d-%Y  %T", localtime(&curtime));
-    printf(" = %s.%06ld\n", buffer, tv->tv_usec);
+    loctime = localtime(&curtime);
+    strftime(buffer, 30, "%m-%d-%Y  %T", loctime);
+    printf("%s.%06ld\n", buffer, tv->tv_usec);
 }
+#endif

@@ -7,6 +7,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <strings.h>
+#include <string.h>
 #include <errno.h>
 #include <err.h>
 #include "utility.h"
@@ -86,7 +87,7 @@ int main(int argc, char **argv){
         }
     int pkt_len = length + sizeof(unsigned int)*2 + sizeof(char);
     char buf[pkt_len];
-    char *pkt;
+    char *pkt = malloc(0);
     struct timeval tp;
 
     FILE *fd = NULL;
@@ -103,16 +104,15 @@ int main(int argc, char **argv){
             printf("Error opening file %s\n", buf + 9);
             return 1;
         }
-        int offset = 0;
+        //int offset = 0;
         char data[length + 1];
-        fread(&data, length, 1, fd);
-        while (feof(fd) == 0){
+        while (fread(&data, 1, length, fd) > 0){
 
             //add NULL char
             data[length] = '\0';
             pkt_len = 1 + (strlen(data) > length ? strlen(data) : length ) + sizeof(unsigned int)*2 + sizeof(char);
 
-            pkt = (char *) malloc(pkt_len);
+            pkt = (char *) realloc(pkt, pkt_len);
             int nseqNo = htonl(seqNo);
             int nlength = htonl( (strlen(data) > length ? strlen(data) : length ));
             memset(pkt, 'D', 1);
@@ -131,15 +131,18 @@ int main(int argc, char **argv){
                 return 1;
             }else{
                 gettimeofday(&tp, NULL);
-                printf("Time:%fms\n", (tp.tv_sec * 1000) + (tp.tv_usec / 1000));
+                printf("Time:");
+                timeval_print_s(&tp);
                 printf("IP:%s\n", inet_ntoa(cli_addr.sin_addr));
-                printf("SeqNo:%d\n", seqNo);
-                char *data = (char *) malloc(4*sizeof(char));
-                memcpy(data, pkt + 9, 4);
-                printf("First 4 bytes:%s\n\n", data);
+                printf("SeqNo:%ld\n", seqNo);
+                char *pay4 = (char *) malloc(5*sizeof(char));
+                memcpy(pay4, pkt + 9, 4);
+                pay4[4] = '\0';
+                printf("First 4 bytes:%s\n\n", pay4);
                 seqNo += length;
+                free(pay4);
             }
-            fread(&data, length, 1, fd);
+            sleep(rate);
         }
 
         memset(pkt, 'E', 1);
@@ -152,5 +155,6 @@ int main(int argc, char **argv){
     }
     fclose(fd);
     close(sock);
+    return 0;
 }
 

@@ -4,6 +4,3 @@ cp sender sender1
 cp sender sender2
 
 cp requester requester1
-
-cd sender1
-./sender -p 5000 -g 5001 -r 1 -q 100 -l 10
