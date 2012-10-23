@@ -74,6 +74,7 @@ int main(int argc, char **argv){
 
     char *pkt;
     char *buf = NULL;
+    char *recv = NULL;
     size_t n = 0;
     int pkt_len;
 
@@ -91,6 +92,7 @@ int main(int argc, char **argv){
     unsigned int piece;
     unsigned int zero = 0;
     struct addrinfo hints;
+    struct addrinfo *res;
     struct timeval time_start;
     struct timeval time_end;
     struct timeval time_result;
@@ -116,24 +118,18 @@ int main(int argc, char **argv){
             LIST_INSERT_HEAD(&head, item, pointers);
             cpy = item;
         }
-        free(buf);
-        buf = NULL;
     }
-    free(file);
-    file = NULL;
     while(cur <= max_id){
         LIST_FOREACH(cpy, &head, pointers){
             if(cpy->piece == cur){
                 int total_pkts = 0;
                 int total_data_bytes = 0;
                 float avg_pkts_sec = 0;
-                //getaddrinfo(serv, NULL, &hints, &res);
-                struct hostent *host = (struct hostent *) gethostbyname((char *) cpy->name);       
-
+                getaddrinfo(cpy->name, NULL, &hints, &res);
 
                 serv_addr.sin_family = AF_INET;
                 serv_addr.sin_port = htons(cpy->port);
-                serv_addr.sin_addr = *((struct in_addr *)host->h_addr);
+                serv_addr.sin_addr = (((struct sockaddr_in *)res->ai_addr)->sin_addr);
                 bzero(&(serv_addr.sin_zero), 8);
                 pkt_len = 1 + strlen(option) + sizeof(unsigned int)*2 + sizeof(char);
 
@@ -150,31 +146,26 @@ int main(int argc, char **argv){
                     printf("Error sending to server:%s\n", strerror(errno));
                     return 1;
                 }
-                free(pkt);     
+                free(pkt);
                 //HACK: This prevents from receiving pkts larger
                 //than 1500
                 pkt_len = 1500;
-
-                
-                int returned = recvfrom(sock, buf, pkt_len, MSG_PEEK, (struct sockaddr *)
-                             &serv_addr, &serv_addr_len); 
-                pkt_len = min(returned, pkt_len);
-                buf = (char *)realloc(buf, pkt_len);
-                if(( reply = recvfrom(sock, buf, pkt_len, 0, (struct sockaddr *)
+                recv = (char *)realloc(NULL, pkt_len);
+                if(( reply = recvfrom(sock, recv, pkt_len, 0, (struct sockaddr *)
                                       &serv_addr, &serv_addr_len)) != pkt_len) {
-                    printf("Error receiving data\n");
-                    return 1;
+                    pkt_len = reply;
                 }
                 gettimeofday(&time_start, NULL);
             
 
-                while(buf[0] != 'E'){
+                while(recv[0] != 'E'){
                     total_pkts += 1;
 
-                    int pay_len = strlen(buf + 9);
+                    int pay_len = strlen(recv + 9);
                     total_data_bytes += pay_len;
 
-                    fwrite(buf + 9, pay_len, 1, fp);
+                    // -1 for NULL
+                    fwrite(recv + 9, pay_len - 1, 1, fp);
 
                     gettimeofday(&time_result, NULL);
                     printf("Time:");
@@ -182,28 +173,23 @@ int main(int argc, char **argv){
                     printf("IP:%s\n", inet_ntoa(serv_addr.sin_addr));
                     int seq = 0;
                     int len = 0;
-                    memcpy(&seq, buf + 1, 4);
-                    memcpy(&len, buf + 5, 4);
+                    memcpy(&seq, recv + 1, 4);
+                    memcpy(&len, recv + 5, 4);
                     printf("SeqNo:%d\n", ntohl(seq));
                     printf("Length:%d\n", ntohl(len));
                     char *data = (char *) malloc(5*sizeof(char));
-                    memcpy(data, buf + 9, 4);
+                    memcpy(data, recv + 9, 4);
                     data[4] = '\0';
                     printf("First 4 bytes:%s\n\n", data);
                     free(data);
-                
-                    int returned = recvfrom(sock, buf, pkt_len, MSG_PEEK, (struct sockaddr *)
-                                 &serv_addr, &serv_addr_len); 
-                    pkt_len = min(returned, pkt_len);
-                    buf = (char *)realloc(buf, pkt_len);
-                    if(( reply = recvfrom(sock, buf, pkt_len, 0, (struct sockaddr *)
+                    free(recv);
+                    recv = (char *)realloc(buf, pkt_len);
+                    if(( reply = recvfrom(sock, recv, pkt_len, 0, (struct sockaddr *)
                                           &serv_addr, &serv_addr_len)) != pkt_len) {
-                        printf("Error receiving data\n");
-                        return 1;
+                        pkt_len = reply;
                     }
                 }
-                free(buf);
-                buf = NULL;
+                free(recv);
                 printf("Total packets:%d\n", total_pkts);
                 printf("Total data bytes:%d\n", total_data_bytes);
                 gettimeofday(&time_end, NULL);
@@ -214,9 +200,6 @@ int main(int argc, char **argv){
                 struct timeval *ptr = &time_result;
                 timeval_print(ptr);
                 printf("sec\n");
-
-
-
                 cur++;
                 break;
             }
