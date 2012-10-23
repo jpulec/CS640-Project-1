@@ -9,6 +9,7 @@
 #include <strings.h>
 #include <errno.h>
 #include <err.h>
+#include "utility.h"
 
 #define min(a,b) (((a) < (b)) ? (a): (b))
 
@@ -86,7 +87,7 @@ int main(int argc, char **argv){
     int pkt_len = length + sizeof(unsigned int)*2 + sizeof(char);
     char buf[pkt_len];
     char *pkt;
-    struct timeval *tp;
+    struct timeval tp;
 
     FILE *fd = NULL;
 
@@ -103,19 +104,20 @@ int main(int argc, char **argv){
             return 1;
         }
         int offset = 0;
-        char data[length];
-        while (!feof(fd)){
-            fread(&data, length, 1, fd);
+        char data[length + 1];
+        fread(&data, length, 1, fd);
+        while (feof(fd) == 0){
+
             //add NULL char
-            memset(data + length, '\0', 1);
+            data[length] = '\0';
             pkt_len = 1 + (strlen(data) > length ? strlen(data) : length ) + sizeof(unsigned int)*2 + sizeof(char);
 
             pkt = (char *) malloc(pkt_len);
-            seqNo = htonl(seqNo);
-            length = htonl( (strlen(data) > length ? strlen(data) : length ));
+            int nseqNo = htonl(seqNo);
+            int nlength = htonl( (strlen(data) > length ? strlen(data) : length ));
             memset(pkt, 'D', 1);
-            memcpy(pkt + 1, &seqNo, 4);
-            memcpy(pkt + 5, &length, 4);
+            memcpy(pkt + 1, &nseqNo, 4);
+            memcpy(pkt + 5, &nlength, 4);
             strcpy(pkt + 9, data);
 
 
@@ -128,16 +130,16 @@ int main(int argc, char **argv){
                 printf("Error sending data to client\n");
                 return 1;
             }else{
-                //gettimeofday(tp, NULL);
-                //printf("Time:%d %d\n", tp->tv_sec, tp->tv_usec);
+                gettimeofday(&tp, NULL);
+                printf("Time:%fms\n", (tp.tv_sec * 1000) + (tp.tv_usec / 1000));
                 printf("IP:%s\n", inet_ntoa(cli_addr.sin_addr));
-                printf("SeqNo:%d\n", ntohl(seqNo));
+                printf("SeqNo:%d\n", seqNo);
                 char *data = (char *) malloc(4*sizeof(char));
                 memcpy(data, pkt + 9, 4);
-                printf("First 4 bytes:%s\n", data);
-                free(data);
+                printf("First 4 bytes:%s\n\n", data);
+                seqNo += length;
             }
-        
+            fread(&data, length, 1, fd);
         }
 
         memset(pkt, 'E', 1);

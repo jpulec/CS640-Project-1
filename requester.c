@@ -11,6 +11,7 @@
 #include <netdb.h>
 #include <string.h>
 #include <sys/time.h>
+#include "utility.h"
 
 #define min(a,b) (((a) < (b)) ? (a): (b))
 
@@ -53,6 +54,7 @@ int main(int argc, char **argv){
 
         cli_addr.sin_family = AF_INET;
         cli_addr.sin_port = htons(port);
+        cli_addr.sin_addr.s_addr = INADDR_ANY;
         bzero(&(cli_addr.sin_zero), 8);
 	
 	if (bind(sock, (struct sockaddr*)&cli_addr, sizeof(cli_addr)) == -1){
@@ -79,7 +81,9 @@ int main(int argc, char **argv){
         unsigned int zero = 0;
         struct addrinfo hints;
         struct addrinfo *res;
-        struct timeval *tp;
+        struct timeval *time_start;
+        struct timeval *time_end;
+        struct timeval *time_result;
 
         memset(&hints, 0, sizeof(hints));
 
@@ -88,7 +92,8 @@ int main(int argc, char **argv){
             int total_pkts = 0;
             int total_data_bytes = 0;
             float avg_pkts_sec = 0;
-            int total_time = 0;
+            float time_start = 0;
+            float time_end = 0;
             
             file = strtok(buf," ");           
             piece = strtoul(strtok(NULL," "), NULL, 10);           
@@ -136,21 +141,24 @@ int main(int argc, char **argv){
                     printf("Error receiving data\n");
                     return 1;
                 }
+                gettimeofday(&time_start, NULL);
                 while(buf[0] != 'E'){
-                   
+                    total_pkts += 1;
+
                     int pay_len = strlen(buf + 9);
+                    total_data_bytes += pay_len;
                     FILE *fp = fopen(option, "a");
                     fwrite(buf + 9, pay_len, 1, fp);
 
-
-                    //gettimeofday(tp, NULL);
-                    //printf("Time:%d %d\n", tp->tv_sec, tp->tv_usec);
+                    gettimeofday(&time_result, NULL);
+                    //printf("Time:%fms\n", (((long)tp.tv_sec) * 1000) + (((long)tp.tv_usec) / 1000));
                     printf("IP:%s\n", inet_ntoa(serv_addr.sin_addr));
                     printf("SeqNo:%d\n", (buf + 1));
                     printf("Length:%d\n",(buf + 5));
-                    char *data = (char *) malloc(4*sizeof(char));
+                    char *data = (char *) malloc(5*sizeof(char));
                     memcpy(data, buf + 9, 4);
-                    printf("First 4 bytes:%s\n", data);
+                    data[4] = '\0';
+                    printf("First 4 bytes:%s\n\n", data);
                     free(data);
                 
                     int returned = recvfrom(sock, buf, pkt_len, MSG_PEEK, (struct sockaddr *)
@@ -166,15 +174,10 @@ int main(int argc, char **argv){
                 printf("Total packets:%d\n", total_pkts);
                 printf("Total data bytes:%d\n", total_data_bytes);
                 printf("Average pkts/sec:%f\n", avg_pkts_sec);
-                printf("Total time:%d\n", total_time);
-    
+                gettimeofday(&time_end, NULL);
+                timeval_subtract(&time_result, &time_start, &time_end);
+                printf("Total time:%ld.%06ld\n", time_result->tv_sec, time_result->tv_usec);
 
-                    
-
-                //if(serv_addr.sin_addr.s_addr != ret_addr.sin_addr.s_addr) {
-                //    printf("Error - Packet received from unknown source\n");
-                //    return 1;
-                //}
             }
 
         }
